@@ -1,5 +1,5 @@
 
-# flower-rain-# FOR YOU
+# FOR YOU
 
 A premium, cinematic, interactive digital flower experience — built as a personal gift.
 
@@ -9,18 +9,22 @@ just HTML, CSS, and vanilla JavaScript, rendered with inline SVG.
 
 ## Features
 
-- A single, professionally-composed SVG bouquet (large, medium, small and bud flowers,
-  elegant leaves, and natural stems) rather than scattered clip-art flowers
+- A single, dense, professionally-composed SVG bouquet — 5 hero flowers, 8 medium
+  flowers, 12 small flowers and 10 tiny filler blooms, all placed at fixed, intentional
+  positions (never randomized), with a short stem cluster and a champagne paper wrapper
+  tying it together
 - A slow, staged opening sequence: stems rise, leaves unfold, buds appear, flowers bloom
   one by one
-- A gentle, physics-like petal rain that drifts, rotates, and fades — recycled efficiently
-  so it never overwhelms performance
+- A gentle, physics-like petal rain in two depth layers (behind and in front of the
+  bouquet), biased toward the sides of the screen so the text column stays readable —
+  recycled efficiently so it never overwhelms performance
 - Subtle cursor parallax on desktop; automatic gentle motion and tap interaction on mobile
 - Hover and click interactions on every flower, with a small petal-and-sparkle burst on click
-- A layered text reveal: an intro line, "FOR YOU", a letter-by-letter name reveal, and a
-  closing message
+- A layered text reveal, positioned entirely below the bouquet: an intro line, "FOR YOU",
+  a letter-by-letter name reveal, and a closing message
 - An optional, non-autoplaying music control
-- Fully responsive (desktop, laptop, tablet, mobile) with no horizontal scroll
+- Fully responsive (desktop, laptop, tablet, mobile) with no horizontal scroll and a fixed,
+  intentional composition at every breakpoint
 - Respects `prefers-reduced-motion`
 
 ## Technologies
@@ -120,8 +124,28 @@ In `style.css`, everything is driven by the `:root` custom properties at the top
 --gold:#D8B878;
 ```
 
-The individual petal gradients (`petalRose`, `petalBlush`, `petalIvory`, `flowerCenter`)
-live inside the `<defs>` block in `index.html` if you want finer control over shading.
+The individual petal gradients (`petalRose`, `petalBlush`, `petalIvory`, `flowerCenter`,
+`wrapperGrad`) live inside the `<defs>` block in `index.html` if you want finer control
+over shading.
+
+### Change the composition / positioning
+
+The overall layout — where the bouquet sits and where each line of text sits — is also
+controlled by `:root` custom properties in `style.css`:
+
+```css
+--intro-top: 7vh;
+--bouquet-top: 16vh;
+--bouquet-height: 58vh;
+--bouquet-width: min(760px, 72vw);
+--foryou-top: 76vh;
+--falak-top: 82vh;
+--final-top: 91vh;
+```
+
+Each breakpoint (`1199px`, `720px`, `420px`) overrides a subset of these variables so the
+bouquet stays centered and the text always sits below it, never overlapping. Adjust these
+if you change the amount of text or want a taller/shorter bouquet.
 
 ### Change animation speed
 
@@ -151,11 +175,23 @@ Increase values to slow the experience down, decrease them to speed it up.
 
 ### Customize the bouquet
 
-Also in `script.js`, `flowerSpecs` defines every flower's position, size, type
-(`"large"`, `"soft"`, `"small"`, `"bud"`) and color palette (`"rose"`, `"blush"`,
-`"ivory"`), and `leafSpecs` defines every leaf's position, length, width and angle,
-inside an 800×900 coordinate space. Add, remove, or reposition entries to reshape the
-bouquet — the bloom timing is generated automatically from the list order.
+Also in `script.js`, the bouquet is built from fixed lists — never `Math.random()` —
+inside a 0–100 percentage coordinate space (`x`/`y` are percentages of the bouquet
+container):
+
+- `largeFlowers` — the 5 hero blooms (center top, upper-left/right, lower-left/right)
+- `mediumFlowers` — the 8 flowers that fill the gaps between the hero blooms
+- `smallFlowers` — 12 smaller flowers around the edges and gaps
+- `fillerFlowers` — 10 tiny blooms/buds tucked close to their neighbours
+- `leafSpecs` — every leaf's position, length, width and angle
+- `stemAnchors` — the 6–8 short stems that converge into the wrapper
+- `WRAPPER_APEX` — the point the stems and paper wrapper converge on
+
+Each entry has a `type` (`"large"`, `"soft"`, `"small"`, `"bud"`) and `palette`
+(`"rose"`, `"blush"`, `"ivory"`). Edit the numbers directly to reshape the arrangement —
+positions are intentional and fixed, so the bouquet looks the same every time it loads.
+`Math.random()` is only ever used for petal-rain motion, background particles, and tiny
+cosmetic jitter in petal curvature/rotation — never for where a flower sits.
 
 ### Add music (optional)
 

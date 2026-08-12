@@ -1,27 +1,57 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>For You — Falak</title>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=Italiana&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,400&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <div id="glow"></div>
-  <canvas id="dust"></canvas>
+  <!-- ambient background glow + falling petals sit behind everything -->
+  <div id="ambient-glow"></div>
+  <div id="rain-back" class="rain-layer" aria-hidden="true"></div>
 
-  <main id="message">
-    <p class="eyebrow">For You</p>
-    <h1 class="name">Falak <span class="heart">♡</span></h1>
-    <p class="line">Some flowers are meant to find their way to you.</p>
+  <main id="stage">
+
+    <!-- ================= EDITABLE TEXT: pre-message ================= -->
+    <p class="pre-message">A little something, just for you.</p>
+
+    <!-- ================= BOUQUET IMAGE =================
+         Replace "bouquet.png" below with your image filename.
+         Keep the image in the same folder as this index.html file
+         (or update the path if you place it in a sub-folder).
+         The bouquet stays as ONE complete image — do not split it. -->
+    <div class="bouquet-wrap">
+      <div class="bouquet-glow"></div>
+      <img
+        id="bouquet"
+        src="bouquet.png"
+        alt="A bouquet of flowers"
+        onerror="this.classList.add('bouquet--missing')"
+      >
+      <!-- Shown only if bouquet.png fails to load, so the page never breaks.
+           Remove this div once your real image is in place. -->
+      <div class="bouquet-fallback">place&nbsp;<code>bouquet.png</code>&nbsp;in this folder</div>
+    </div>
+    <!-- ================================================================ -->
+
+    <!-- ================= EDITABLE TEXT: names / message ================= -->
+    <div class="dedication">
+      <p class="for-you">FOR YOU</p>
+      <h1 class="name">FALAK</h1>
+      <p class="closing-line">Because some people deserve flowers.</p>
+    </div>
+    <!-- ==================================================================== -->
+
   </main>
 
-  <div id="shower" aria-hidden="true"></div>
+  <div id="rain-front" class="rain-layer" aria-hidden="true"></div>
 
   <script src="script.js"></script>
 </body>

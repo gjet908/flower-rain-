@@ -1,235 +1,173 @@
-
-(function(){
+(function () {
   "use strict";
 
-  var shower = document.getElementById('shower');
-  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var backLayer = document.getElementById('rain-back');
+  var frontLayer = document.getElementById('rain-front');
+  var bouquet = document.getElementById('bouquet');
+
+  // The entrance animation (defined in CSS) owns `transform` while it runs.
+  // Once it finishes we hand control over to the JS parallax loop below,
+  // so the two never fight over the same property.
+  var bouquetReady = false;
+  if (bouquet) {
+    bouquet.addEventListener('animationend', function (e) {
+      if (e.animationName === 'bouquet-in') {
+        bouquet.style.animation = 'none';
+        bouquet.style.opacity = '1';
+        bouquet.style.transform = 'translate(0px,0px) rotate(0deg)';
+        bouquetReady = true;
+      }
+    });
+  }
 
   var W = window.innerWidth, H = window.innerHeight;
 
   var COLORS = [
-    ['#f6d4dd', '#e79fb2'],   // soft pink
-    ['#f3e3d8', '#e6bfa4'],   // blush
-    ['#fbf6ee', '#e9dccb'],   // white / cream
-    ['#f2e9da', '#dcc6a3'],   // cream
-    ['#e6d7ec', '#c9a9d9'],   // subtle lavender
-    ['#fbf1ee', '#eec2cf']    // pale rose
+    ['#f6d9e1', '#e79db0'],  // soft pink
+    ['#faf3eb', '#e3d3c5'],  // warm white
+    ['#f2e0e5', '#d99cae'],  // muted rose
+    ['#f7ecdf', '#d8bd94']   // faint gold-cream
   ];
 
-  var SHAPES = ['petal', 'blossom', 'rose'];
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
-  function rand(a, b){ return a + Math.random() * (b - a); }
-  function pick(arr){ return arr[(Math.random() * arr.length) | 0]; }
+  // ---------------- petal rain (kept light so it never hides the bouquet/text) ----------------
 
-  // ---- flower count scaled to viewport / device, target 100-150 on desktop ----
-  function targetCount(){
-    var area = W * H;
-    var n = Math.round(area / 8500);
-    return Math.max(60, Math.min(150, n));
-  }
+  var petals = [];
 
-  var flowers = [];
-
-  function makeFlowerEl(sizeTier){
+  function buildPetal(container, isFront) {
     var el = document.createElement('div');
-    var shape = sizeTier === 'tiny' ? 'petal' : pick(SHAPES);
-    el.className = 'bloom ' + shape;
     var pair = pick(COLORS);
+    var round = Math.random() < 0.4;
+    el.className = 'petal' + (round ? ' round' : '') + (!isFront && Math.random() < 0.4 ? ' blurred' : '');
     el.style.background = 'radial-gradient(circle at 35% 30%, ' + pair[0] + ', ' + pair[1] + ' 75%)';
-    shower.appendChild(el);
-    return el;
+    container.appendChild(el);
+
+    var p = { el: el, front: isFront };
+    resetPetal(p, true);
+    return p;
   }
 
-  function sizeForTier(tier){
-    switch(tier){
-      case 'tiny': return rand(5, 9);
-      case 'small': return rand(10, 17);
-      case 'medium': return rand(18, 28);
-      default: return rand(32, 48); // large
-    }
+  function resetPetal(p, firstRun) {
+    var size = p.front ? rand(4, 9) : rand(7, 20);
+    p.size = size;
+    p.baseX = rand(-10, W + 10);
+    p.x = p.baseX;
+    p.y = firstRun ? rand(-H, H) : rand(-140, -20);
+    p.speed = rand(16, 34) * (size < 10 ? 1.15 : 1);
+    p.swayAmp = rand(8, 26);
+    p.swayFreq = rand(0.2, 0.55);
+    p.phase = rand(0, Math.PI * 2);
+    p.rot = rand(0, 360);
+    p.rotSpeed = rand(-16, 16);
+    p.opacity = p.front ? rand(0.18, 0.32) : rand(0.35, 0.72);
+    p.pushX = 0;
+    p.pushY = 0;
+
+    p.el.style.width = size + 'px';
+    p.el.style.height = size + 'px';
+    p.el.style.opacity = p.opacity;
   }
 
-  function pickTier(){
-    var r = Math.random();
-    if (r < 0.32) return 'tiny';
-    if (r < 0.66) return 'small';
-    if (r < 0.92) return 'medium';
-    return 'large';
+  function createRain() {
+    var area = W * H;
+    var backCount = Math.max(26, Math.min(55, Math.round(area / 22000)));
+    var frontCount = Math.max(6, Math.min(14, Math.round(area / 90000)));
+
+    for (var i = 0; i < backCount; i++) petals.push(buildPetal(backLayer, false));
+    for (var j = 0; j < frontCount; j++) petals.push(buildPetal(frontLayer, true));
   }
 
-  function initFlower(f, firstRun){
-    var tier = pickTier();
-    var size = sizeForTier(tier);
-    var layer = tier === 'tiny' || tier === 'small' ? (Math.random() < 0.55 ? 'back' : 'mid') : (Math.random() < 0.3 ? 'mid' : 'front');
+  // ---------------- pointer interaction ----------------
 
-    f.tier = tier;
-    f.size = size;
-    f.baseX = rand(-20, W + 20);
-    f.x = f.baseX;
-    f.y = firstRun ? rand(-H, 0) : rand(-160, -20);
-    f.speed = layer === 'back' ? rand(18, 34) : layer === 'mid' ? rand(30, 52) : rand(46, 78);
-    f.speed *= size < 12 ? 1.15 : 1; // tiny petals drift a touch faster relatively
-    f.swayAmp = rand(10, 38) * (size > 30 ? 1.3 : 1);
-    f.swayFreq = rand(0.25, 0.7);
-    f.phase = rand(0, Math.PI * 2);
-    f.rot = rand(0, 360);
-    f.rotSpeed = rand(-24, 24);
-    f.opacity = layer === 'back' ? rand(0.35, 0.55) : layer === 'mid' ? rand(0.55, 0.8) : rand(0.75, 0.95);
-    f.layer = layer;
-    f.pushX = 0;
-    f.pushY = 0;
-
-    var el = f.el;
-    el.className = 'bloom ' + f.shape + (layer === 'back' ? ' layer-back' : layer === 'mid' ? ' layer-mid' : '');
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.opacity = f.opacity;
-    el.style.zIndex = layer === 'back' ? 1 : layer === 'mid' ? 2 : 3;
-  }
-
-  function createFlowers(){
-    var n = targetCount();
-    for (var i = 0; i < n; i++){
-      var tier = pickTier();
-      var shape = tier === 'tiny' ? 'petal' : pick(SHAPES);
-      var el = document.createElement('div');
-      var pair = pick(COLORS);
-      el.style.background = 'radial-gradient(circle at 35% 30%, ' + pair[0] + ', ' + pair[1] + ' 75%)';
-      shower.appendChild(el);
-
-      var f = { el: el, shape: shape };
-      initFlower(f, true);
-      flowers.push(f);
-    }
-  }
-
-  // ---- pointer interaction ----
   var pointer = { x: -9999, y: -9999, active: false };
-  var REPEL_RADIUS = 130;
+  var REPEL_RADIUS = 110;
 
-  function onPointerMove(x, y){
-    pointer.x = x; pointer.y = y; pointer.active = true;
-  }
+  function setPointer(x, y) { pointer.x = x; pointer.y = y; pointer.active = true; }
 
-  window.addEventListener('mousemove', function(e){ onPointerMove(e.clientX, e.clientY); }, { passive: true });
-  window.addEventListener('mouseleave', function(){ pointer.active = false; });
-  window.addEventListener('touchmove', function(e){
-    if (e.touches && e.touches[0]) onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+  window.addEventListener('mousemove', function (e) { setPointer(e.clientX, e.clientY); }, { passive: true });
+  window.addEventListener('mouseleave', function () { pointer.active = false; });
+  window.addEventListener('touchmove', function (e) {
+    if (e.touches && e.touches[0]) setPointer(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
-  window.addEventListener('touchend', function(){ pointer.active = false; });
+  window.addEventListener('touchend', function () { pointer.active = false; });
 
-  // ---- background dust particles on canvas ----
-  var canvas = document.getElementById('dust');
-  var ctx = canvas.getContext('2d');
-  var dust = [];
+  // ---------------- subtle bouquet parallax ----------------
 
-  function initDust(){
-    canvas.width = W;
-    canvas.height = H;
-    var n = Math.max(24, Math.min(60, Math.round((W * H) / 26000)));
-    dust = [];
-    for (var i = 0; i < n; i++){
-      dust.push({
-        x: rand(0, W),
-        y: rand(0, H),
-        r: rand(0.5, 1.8),
-        a: rand(0.15, 0.5),
-        vy: rand(-4, -10) / 60,
-        vx: rand(-3, 3) / 60,
-        phase: rand(0, Math.PI * 2)
-      });
-    }
+  var tilt = { x: 0, y: 0 };
+  var tiltTarget = { x: 0, y: 0 };
+
+  function updateTiltTarget() {
+    if (!pointer.active) { tiltTarget.x = 0; tiltTarget.y = 0; return; }
+    var nx = (pointer.x / W) * 2 - 1; // -1..1
+    var ny = (pointer.y / H) * 2 - 1;
+    tiltTarget.x = nx * 8;   // max 8px horizontal drift
+    tiltTarget.y = ny * 6;   // max 6px vertical drift
   }
 
-  function drawDust(t){
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#f6ecdd';
-    for (var i = 0; i < dust.length; i++){
-      var d = dust[i];
-      d.y += d.vy;
-      d.x += d.vx + Math.sin(t * 0.0006 + d.phase) * 0.05;
+  // ---------------- main loop ----------------
 
-      if (pointer.active){
-        var dx = d.x - pointer.x, dy = d.y - pointer.y;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 90 && dist > 0.01){
-          var f = (90 - dist) / 90 * 0.6;
-          d.x += (dx / dist) * f;
-          d.y += (dy / dist) * f;
-        }
-      }
-
-      if (d.y < -10) { d.y = H + 10; d.x = rand(0, W); }
-      if (d.x < -10) d.x = W + 10;
-      if (d.x > W + 10) d.x = -10;
-
-      ctx.globalAlpha = d.a * (0.7 + 0.3 * Math.sin(t * 0.001 + d.phase));
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // ---- main animation loop ----
   var last = performance.now();
 
-  function frame(now){
+  function frame(now) {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    drawDust(now);
+    updateTiltTarget();
+    tilt.x += (tiltTarget.x - tilt.x) * Math.min(1, dt * 2.2);
+    tilt.y += (tiltTarget.y - tilt.y) * Math.min(1, dt * 2.2);
 
-    for (var i = 0; i < flowers.length; i++){
-      var f = flowers[i];
+    if (bouquet && bouquetReady) {
+      bouquet.style.transform =
+        'translate(' + tilt.x.toFixed(2) + 'px,' + tilt.y.toFixed(2) + 'px) ' +
+        'rotate(' + (tilt.x * 0.12).toFixed(2) + 'deg)';
+    }
 
-      f.y += f.speed * dt;
-      f.rot += f.rotSpeed * dt;
+    for (var i = 0; i < petals.length; i++) {
+      var p = petals[i];
 
-      var sway = Math.sin(now * 0.001 * f.swayFreq + f.phase) * f.swayAmp;
-      var targetX = f.baseX + sway;
+      p.y += p.speed * dt;
+      p.rot += p.rotSpeed * dt;
 
-      // pointer repulsion (recomputed each frame -> smoothly releases)
+      var sway = Math.sin(now * 0.001 * p.swayFreq + p.phase) * p.swayAmp;
+      var targetX = p.baseX + sway;
+
       var pushX = 0, pushY = 0;
-      if (pointer.active){
+      if (pointer.active) {
         var dx = targetX - pointer.x;
-        var dy = f.y - pointer.y;
+        var dy = p.y - pointer.y;
         var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < REPEL_RADIUS && dist > 0.01){
+        if (dist < REPEL_RADIUS && dist > 0.01) {
           var force = (REPEL_RADIUS - dist) / REPEL_RADIUS;
-          force = force * force * 46;
+          force = force * force * 34;
           pushX = (dx / dist) * force;
-          pushY = (dy / dist) * force * 0.4;
+          pushY = (dy / dist) * force * 0.35;
         }
       }
 
-      // ease current push toward target push for smoothness
-      f.pushX += (pushX - f.pushX) * Math.min(1, dt * 6);
-      f.pushY += (pushY - f.pushY) * Math.min(1, dt * 6);
+      p.pushX += (pushX - p.pushX) * Math.min(1, dt * 6);
+      p.pushY += (pushY - p.pushY) * Math.min(1, dt * 6);
 
-      f.x = targetX + f.pushX;
-      var y = f.y + f.pushY;
+      p.x = targetX + p.pushX;
+      var y = p.y + p.pushY;
 
-      f.el.style.transform = 'translate3d(' + f.x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + f.rot.toFixed(1) + 'deg)';
+      p.el.style.transform = 'translate3d(' + p.x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + p.rot.toFixed(1) + 'deg)';
 
-      if (f.y > H + 60){
-        initFlower(f, false);
-      }
+      if (p.y > H + 40) resetPetal(p, false);
     }
 
     requestAnimationFrame(frame);
   }
 
-  function handleResize(){
+  function handleResize() {
     W = window.innerWidth;
     H = window.innerHeight;
-    initDust();
   }
 
   window.addEventListener('resize', handleResize);
 
-  createFlowers();
-  initDust();
+  createRain();
   requestAnimationFrame(frame);
 
 })();
